@@ -1,0 +1,8 @@
+@BASE_URL = http://localhost:5000/notification
+@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NDE1MjdhODU0NzJmMDcwODVmNjI4NzUiLCJpYXQiOjE2NzkxMTA3OTJ9.RUL_DJoF1N2lj9_r45QVQPhX-Vsh7fNtwIIM5N7srOE
+
+# Get Notification Detail
+GET {{BASE_URL}}/
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+###

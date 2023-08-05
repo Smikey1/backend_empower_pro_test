@@ -1,0 +1,66 @@
+@BASE_URL = http://localhost:5000/user
+@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NDE1MjdjNjU0NzJmMDcwODVmNjI4NzkiLCJpYXQiOjE2NzkxMDgyOTh9.hfl6nKHmE9pRf-NKhbc_qVD6kHHXZIeppEwJXfl_heI
+
+# Register Request
+POST {{BASE_URL}}/register
+Content-Type: application/json
+
+{
+    "fullname": "Brinda Bhattrai",
+    "email":"brinda.bhattrai99@gmail.com",
+    "newPassword":"Brinda99"
+}
+
+###
+
+# Login Request
+POST {{BASE_URL}}/login
+Content-Type: application/json
+
+{
+    "email":"user@money.com",
+    "password":"123456"
+}
+
+###
+
+# Get User Detail
+GET {{BASE_URL}}/
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+###
+
+# Update User Profile
+PATCH {{BASE_URL}}/
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+
+{
+    "fullname": "Jenny Doe",
+    "bio": "I m great",
+    "website": "something.com",
+    "address": "Watsicachester",
+    "phone": "9856432671",
+    "gender": "female"
+}
+
+###
+
+# Reset Password
+POST {{BASE_URL}}/reset
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+
+{
+    "email":"smikeybros1000@gmail.com"
+}
+
+###
+
+
+# Follow Other User
+PATCH {{BASE_URL}}/follow/641527a85472f07085f62875
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+
+###
