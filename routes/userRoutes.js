@@ -12,11 +12,17 @@ router.patch("/password", auth.verifyUser, userController.change_password)
 
 router.patch("/", auth.verifyUser, userController.update_user_detail);
 
+router.patch("/email-phone", auth.verifyUser, userController.update_user_email_phone);
+
+router.patch("/device", auth.verifyUser, userController.update_user_device);
+
 router.patch("/profile", auth.verifyUser, userController.update_profile_picture)
 
-router.post("/reset", userController.reset_password)
+router.post("/reset-user-code-for-password", userController.user_reset_code_reset_password)
 
-router.patch("/new-password", userController.new_password)
+router.post("/reset-user-code-for-email-phone", auth.verifyUser, userController.reset_code_for_email_phone)
+
+router.patch("/new-password", userController.set_new_password)
 
 router.post("/validate-email", userController.validate_email)
 

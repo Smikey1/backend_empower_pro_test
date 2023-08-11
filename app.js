@@ -6,6 +6,7 @@ const cors = require("cors")
 
 //all route import here
 const userRoute = require("./routes/userRoutes.js")
+const saleRoute = require("./routes/saleRoutes.js")
 
 //create backend app from express engine
 const app = express()
@@ -25,5 +26,6 @@ app.get("/", (req, res) => {
 
 // route use here
 app.use("/user", userRoute)
+app.use("/sale", saleRoute)
 
 module.exports = app

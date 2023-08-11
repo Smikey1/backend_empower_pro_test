@@ -1,5 +1,5 @@
-module.exports = function (email, fullname, resetCode, expiration) {
-  const textContent =
+module.exports.email_template = function (fullname, loginCode, expiration) {
+  const emailTemplate =
     `
 <html>
   <head>
@@ -27,10 +27,9 @@ module.exports = function (email, fullname, resetCode, expiration) {
           <img src="https://empowersofttech.com/wp-content/uploads/2018/07/empower-soft-tech.jpg"/>
         </div>
         <h1>Congratulation! Dear, ${fullname}</h1>
-        <p>Please verify your email</p>
-        <p>EmpowerPro recieved a request to verify email: <b>${email}</b></p>
-        <p>To verify your email, use this code:</p>
-        <p class="center resetcode">${resetCode}</p>
+        <p>Please verify the one-time password on the EmpowerPro:</p>
+        <p>For Verification, use this code:</p>
+        <p class="center resetcode">${loginCode}</p>
         <p>Your password expiration: ${expiration}</p>
         <p>
           If this was you, you can ignore this message. There's no need to take any action. This code will expire in 24 Hours.
@@ -41,5 +40,15 @@ module.exports = function (email, fullname, resetCode, expiration) {
   </body>
 </html>
     `
-  return textContent
+  return emailTemplate
+}
+
+module.exports.sms_template = function (fullname, loginCode, expiration) {
+  const smsTemplate =
+  `
+  Hi ${fullname}! Your Verification Code is: ${loginCode}. This code expire on: ${expiration}.
+  Thank you.
+  EmpowerPro
+  `
+return smsTemplate
 }

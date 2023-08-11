@@ -1,32 +1,16 @@
-@BASE_URL = http://localhost:5000/user
-@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGNlMTFjNDk4MWUwYWMxNTNiNDk5MGQiLCJpYXQiOjE2OTEyODgyNzR9.FUe3GlefqmPtZDM0uA2_MY1BAQ2v4t1NU5dROAJbFV0
-# Register Request
-POST {{BASE_URL}}/register
-Content-Type: application/json
+@BASE_URL = http://localhost:5000/sale
+@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGNlMTFjNDk4MWUwYWMxNTNiNDk5MGQiLCJpYXQiOjE2OTE0Njk4Mjl9.FfGQ0zyLAdalKd54WlcAFupme5d6QRpu8Phn8cKiCww
 
-{
-    "fullname": "Smikey Bros",
-    "email":"smikeywork@gmail.com",
-    "androidId":"okokok",
-    "newPassword":"smikey",
-    "countryCode":"+61",
-    "phone":"0452369543"
-}
+
+# Add Sale Request
+POST {{BASE_URL}}/add
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
 
 ###
 
-# Login Request
-POST {{BASE_URL}}/login
-Content-Type: application/json
 
-{
-    "email":"smikeywork@gmail.com",
-    "password":"smikey"
-}
-
-###
-
-# Get User Detail
+# Get ALL Sale
 GET {{BASE_URL}}/
 Content-Type: application/json
 Authorization: Bearer {{TOKEN}}

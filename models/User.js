@@ -29,6 +29,10 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ""
     },
+    countryCode: {
+        type: String,
+        default: ""
+    },
     phone: {
         type: String,
         default: ""
@@ -49,6 +53,10 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ""
     },
+    androidId: {
+        type: String,
+        default: ""
+    },
     resetCode: {
         type: String,
         default: null,
@@ -61,7 +69,7 @@ const userSchema = mongoose.Schema({
     },
 }, { toJSON: { getters: true } })
 
-function capitalize(name){
+function capitalize(name) {
     return name.replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
 }
 

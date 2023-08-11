@@ -4,9 +4,10 @@ const moment = require('moment')
 const User = require("../models/User.js");
 const cloudinary = require("../utils/cloudinary.js")
 const { success, failure } = require("../utils/message.js")
-const sendEmail = require('../utils/send-email.js')
+const sendOTP_Email_SMS = require('../utils/send-otp.js')
 const passwordTemplate = require('../utils/generate-password-reset-template')
 const registerEmailTemplate = require('../utils/register-email-verification-template')
+const otpVerificationTemplate = require('../utils/otp-verification-template.js')
 const randomIntGenerator = require('../utils/generate-random-int.js');
 
 exports.register_new_user = async function (req, res) {
@@ -20,20 +21,27 @@ exports.register_new_user = async function (req, res) {
             const fullname = req.body.fullname
             const password = req.body.newPassword
             const email = req.body.email
+            const country_code = req.body.countryCode
+            const phone = req.body.phone
+            const deviceId = req.body.androidId || ""
             const salt = await bcrypt.genSalt(10);
             const hashed = await bcrypt.hash(password, salt);
+
             // Set Default User Profile
             const avatarUrl = `https://ui-avatars.com/api/?background=random&name=${fullname}`;
             const user = new User({
                 fullname: fullname,
                 email: email,
+                countryCode: country_code,
+                phone: phone,
                 profile: avatarUrl,
-                password: hashed
+                password: hashed,
+                androidId: deviceId
             })
             const resetCode = randomIntGenerator(100000, 999999)
             const resetCodeExpiration = moment().add(24, 'h')
-            const textContent = registerEmailTemplate(email, resetCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-            sendEmail(email, fullname, textContent)
+            const textContent = registerEmailTemplate(email, fullname, resetCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
+            sendOTP_Email_SMS(email, fullname, textContent)
             await user.save();
             res.json(success("Registeration successful."));
         }
@@ -52,12 +60,28 @@ exports.login_user = async function (req, res) {
         if (validLogin) {
             const _id = user._id
             const accessToken = jwt.sign({ _id }, process.env.TOKEN_KEY);
-            res.json({
-                message: "Login Successful",
-                data: user,
-                accessToken: accessToken,
-                success: true
-            })
+            if (user.androidId == req.body.androidId) {
+                res.json({
+                    message: "Login Successful",
+                    data: user,
+                    accessToken: accessToken,
+                    success: true
+                })
+            } else {
+                const loginCode = randomIntGenerator(100000, 999999)
+                const loginCodeExpiration = moment().add(24, 'h')
+                const emailTemplate = otpVerificationTemplate.email_template(user.fullname, loginCode, loginCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
+                const smsTemplate = otpVerificationTemplate.sms_template(user.fullname, loginCode, loginCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
+                const phoneNumber = user.countryCode + user.phone
+                sendOTP_Email_SMS(user.email, phoneNumber, user.fullname, emailTemplate, smsTemplate)
+                res.json({
+                    message: "Login Successful",
+                    data: user,
+                    accessToken: accessToken,
+                    accessCode: loginCode,
+                    success: true
+                })
+            }
         } else {
             // Incorrect Password
             res.json(failure("Invalid Credential"));
@@ -89,10 +113,24 @@ exports.update_user_detail = async function (req, res) {
             bio: req.body.bio,
             website: req.body.website,
             address: req.body.address,
+            countryCode: req.body.countryCode,
             phone: req.body.phone,
-            gender: req.body.gender,
+            gender: req.body.gender
         })
         res.json(success("User Detail Updated"))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.update_user_device = async function (req, res) {
+    try {
+        await User.updateOne({ _id: req.user._id }, {
+            androidId: req.body.androidId,
+        })
+        res.json(success("User Device Reset Successful"))
     } catch (error) {
         console.log(error)
         res.json(failure())
@@ -140,21 +178,22 @@ exports.update_profile_picture = async function (req, res) {
     res.end()
 }
 
-
-module.exports.reset_password = async function (req, res) {
+module.exports.user_reset_code_reset_password = async function (req, res) {
     try {
         const email = req.body.email
         const user = await User.findOne({ email: email })
         if (user) {
-            const resetCode = randomIntGenerator(100000, 999999)
-            const hashedResetCode = await bcrypt.hash(resetCode.toString(), 10);
+            const resetOTPCode = randomIntGenerator(100000, 999999)
+            const hashedResetCode = await bcrypt.hash(resetOTPCode.toString(), 10);
             const resetCodeExpiration = moment().add(24, 'h')
             await User.findByIdAndUpdate(user._id, {
                 resetCode: hashedResetCode,
                 resetCodeExpiration: resetCodeExpiration.format()
             })
-            const textContent = passwordTemplate(user.email, resetCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-            sendEmail(user.email, user.fullname, textContent)
+            const emailTemplate = otpVerificationTemplate.email_template(user.fullname, resetOTPCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
+            const smsTemplate = otpVerificationTemplate.sms_template(user.fullname, resetOTPCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
+            const phoneNumber = user.countryCode + user.phone
+            sendOTP_Email_SMS(user.email, phoneNumber, user.fullname, emailTemplate, smsTemplate)
             res.json(success())
         }
         else {
@@ -167,7 +206,134 @@ module.exports.reset_password = async function (req, res) {
     res.end()
 }
 
-module.exports.new_password = async function (req, res) {
+module.exports.reset_code_for_email_phone = async function (req, res) {
+    try {
+        const newEmailAddress = req.body.email
+        const newPhoneNumber = req.body.countryCode + req.body.phone
+
+        console.log("The new email -->" + newEmailAddress);
+        console.log("The new phone -->" + newPhoneNumber);
+        // search for user
+        const user = await User.findById(req.user._id).select("resetCode resetCodeExpiration password");
+        if (!user) {
+            return res.json(failure("User not found"));
+        }
+
+        const otpVerificationCode = randomIntGenerator(100000, 999999);
+        const hashedOtpVerificationCode = await bcrypt.hash(otpVerificationCode.toString(), 10);
+        const otpVerificationCodeExpiration = moment().add(24, 'h');
+
+        // add to user details
+        await User.findByIdAndUpdate(req.user._id, {
+            resetCode: hashedOtpVerificationCode,
+            resetCodeExpiration: otpVerificationCodeExpiration.format()
+        })
+        const userAgain = await User.findById(req.user._id)
+        const phoneNumber = userAgain.countryCode + userAgain.phone
+
+        const emailTemplate = otpVerificationTemplate.email_template(
+            userAgain.fullname,
+            otpVerificationCode,
+            otpVerificationCodeExpiration.format('MMMM Do YYYY, h:mm:ss a')
+        );
+        const smsTemplate = otpVerificationTemplate.sms_template(
+            userAgain.fullname,
+            otpVerificationCode,
+            otpVerificationCodeExpiration.format('MMMM Do YYYY, h:mm:ss a')
+        );
+
+        // Check if there are changes in the email or phone both change
+        if ((newEmailAddress && newEmailAddress !== userAgain.email) && (newPhoneNumber && newPhoneNumber !== phoneNumber)) {
+            sendOTP_Email_SMS(newEmailAddress, newPhoneNumber, userAgain.fullname, emailTemplate, smsTemplate);
+        }
+        // Check if there are changes in the email or not
+        else if (newEmailAddress && newEmailAddress !== userAgain.email) {
+            sendOTP_Email_SMS(newEmailAddress, phoneNumber, userAgain.fullname, emailTemplate, smsTemplate);
+        }
+        // Check if there are changes in the phone number or not
+        else if (newPhoneNumber && newPhoneNumber !== phoneNumber) {
+            sendOTP_Email_SMS(userAgain.email, newPhoneNumber, userAgain.fullname, emailTemplate, smsTemplate);
+        }
+        res.json(success())
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.update_user_email_phone = async function (req, res) {
+    try {
+        const newEmailAddress = req.body.email
+        const newPhoneNumber = req.body.countryCode + req.body.phone
+        const newResetCode = req.body.resetCode
+
+        console.log("The req.body is:-->" + req.body)
+
+        // search for user
+        const user = await User.findById(req.user._id).select("resetCode resetCodeExpiration password")
+        if (!user) {
+            return res.json(failure("User not found"));
+        }
+        const userAgain = await User.findById(req.user._id)
+        const phoneNumber = userAgain.countryCode + userAgain.phone
+
+        // verify the otp
+        if (user.resetCode) {
+            console.log(`The if-user is: -->${user}`)
+            const isValid = await bcrypt.compare(newResetCode, user.resetCode);
+            if (isValid) {
+                const now = moment(Date.now()).format()
+                const expiration = user.resetCodeExpiration
+                const remainingTime = -(moment(now).diff(expiration, 's'))
+                console.log(now, expiration, remainingTime)
+                if (remainingTime > 0) {
+                    if ((newEmailAddress && newEmailAddress !== userAgain.email) && (newPhoneNumber && newPhoneNumber !== phoneNumber)) {
+                        await User.updateOne({ _id: req.user._id }, {
+                            email: newEmailAddress,
+                            countryCode: req.body.countryCode,
+                            phone: req.body.phone
+                        })
+                        res.json(success("Both Email & Phone Number Updated"))
+                    }
+                    // Check if there are changes in the email or not
+                    else if (newEmailAddress && newEmailAddress !== userAgain.email) {
+                        await User.updateOne({ _id: req.user._id }, {
+                            email: newEmailAddress
+                        })
+                        res.json(success("User Email Address Updated"))
+                    }
+                    // Check if there are changes in the phone number or not
+                    else if (newPhoneNumber && newPhoneNumber !== phoneNumber) {
+                        await User.updateOne({ _id: req.user._id }, {
+                            countryCode: req.body.countryCode,
+                            phone: req.body.phone
+                        })
+                        res.json(success("User Phone Number Updated"))
+                    }
+                } else {
+                    res.json(failure("Reset Code Expired"))
+                }
+                user.resetCode = null
+                user.resetCodeExpiration = null
+                user.save()
+            }
+            else {
+                res.json(failure("Invalid reset code"))
+            }
+        }
+
+        else {
+            res.json(failure("Reset Code does not exist"))
+        }
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+module.exports.set_new_password = async function (req, res) {
     try {
         const email = req.body.email
         const resetCode = req.body.resetCode
@@ -197,13 +363,11 @@ module.exports.new_password = async function (req, res) {
                 else {
                     res.json(failure("Invalid reset code"))
                 }
-            }
-            else {
+            } else {
                 res.json(failure("Reset Code does not exist"))
             }
-        }
-        else {
-            res.json(failure("Reset Code does not exist"))
+        } else {
+            res.json(failure("User not found"))
         }
     } catch (error) {
         console.log(error)
