@@ -8,6 +8,10 @@ router.post("/login", userController.login_user);
 
 router.get("/", auth.verifyUser, userController.get_user_detail);
 
+router.post("/resend-login-otp", auth.verifyUser, userController.resend_login_otp)
+
+router.post("/resend-otp", auth.verifyUser, userController.resend_otp)
+
 router.patch("/password", auth.verifyUser, userController.change_password)
 
 router.patch("/", auth.verifyUser, userController.update_user_detail);

@@ -9,6 +9,7 @@ const passwordTemplate = require('../utils/generate-password-reset-template')
 const registerEmailTemplate = require('../utils/register-email-verification-template')
 const otpVerificationTemplate = require('../utils/otp-verification-template.js')
 const randomIntGenerator = require('../utils/generate-random-int.js');
+const otpHelper = require("../helpers/otpHelper.js")
 
 exports.register_new_user = async function (req, res) {
     try {
@@ -68,12 +69,7 @@ exports.login_user = async function (req, res) {
                     success: true
                 })
             } else {
-                const loginCode = randomIntGenerator(100000, 999999)
-                const loginCodeExpiration = moment().add(24, 'h')
-                const emailTemplate = otpVerificationTemplate.email_template(user.fullname, loginCode, loginCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-                const smsTemplate = otpVerificationTemplate.sms_template(user.fullname, loginCode, loginCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-                const phoneNumber = user.countryCode + user.phone
-                sendOTP_Email_SMS(user.email, phoneNumber, user.fullname, emailTemplate, smsTemplate)
+                const loginCode = await otpHelper.sendLoginAccessCode(user)
                 res.json({
                     message: "Login Successful",
                     data: user,
@@ -183,17 +179,7 @@ module.exports.user_reset_code_reset_password = async function (req, res) {
         const email = req.body.email
         const user = await User.findOne({ email: email })
         if (user) {
-            const resetOTPCode = randomIntGenerator(100000, 999999)
-            const hashedResetCode = await bcrypt.hash(resetOTPCode.toString(), 10);
-            const resetCodeExpiration = moment().add(24, 'h')
-            await User.findByIdAndUpdate(user._id, {
-                resetCode: hashedResetCode,
-                resetCodeExpiration: resetCodeExpiration.format()
-            })
-            const emailTemplate = otpVerificationTemplate.email_template(user.fullname, resetOTPCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-            const smsTemplate = otpVerificationTemplate.sms_template(user.fullname, resetOTPCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-            const phoneNumber = user.countryCode + user.phone
-            sendOTP_Email_SMS(user.email, phoneNumber, user.fullname, emailTemplate, smsTemplate)
+            otpHelper.generateAndSendOTP(user)
             res.json(success())
         }
         else {
@@ -414,3 +400,38 @@ module.exports.get_user_following = async function (req, res) {
     }
     res.end()
 }
+
+module.exports.resend_otp = async function (req, res) {
+    try {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.json(failure("Email does not exist"));
+        }
+        // Generate a new OTP
+        otpHelper.generateAndSendOTP(user);
+        res.json(success());
+    } catch (error) {
+        console.log(error);
+        res.json(failure());
+    }
+    res.end();
+};
+
+
+module.exports.resend_login_otp = async function (req, res) {
+    try {
+        const user = await User.findById(req.user._id);
+
+        // Generate a new login OTP
+        const loginCode = await otpHelper.sendLoginAccessCode(user);
+        res.json({
+            accessCode: loginCode,
+            success: true
+        })
+    } catch (error) {
+        console.log(error);
+        res.json(failure());
+    }
+    res.end();
+};

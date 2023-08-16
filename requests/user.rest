@@ -1,5 +1,5 @@
 @BASE_URL = http://localhost:5000/user
-@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGNlMTFjNDk4MWUwYWMxNTNiNDk5MGQiLCJpYXQiOjE2OTEyODgyNzR9.FUe3GlefqmPtZDM0uA2_MY1BAQ2v4t1NU5dROAJbFV0
+@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGNlMTFjNDk4MWUwYWMxNTNiNDk5MGQiLCJpYXQiOjE2OTIxNzc5NjV9.2WYIKH1vlfQI9Cj2Q_-z38rtI6lmWqknVJ8aZLsAXaw
 # Register Request
 POST {{BASE_URL}}/register
 Content-Type: application/json
@@ -21,7 +21,7 @@ Content-Type: application/json
 
 {
     "email":"smikeywork@gmail.com",
-    "password":"smikey"
+    "password":"smikey1"
 }
 
 ###
@@ -83,6 +83,13 @@ Authorization: Bearer {{TOKEN}}
 
 ###
 
+# Resend Otp
+POST {{BASE_URL}}/resend-otp
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+
+###
+
 # Forget Password
 PATCH {{BASE_URL}}/new-password
 Content-Type: application/json
@@ -90,7 +97,7 @@ Authorization: Bearer {{TOKEN}}
 
 {
     "email":"smikeywork@gmail.com",
-    "resetCode":"334485",
+    "resetCode":"170628",
     "newPassword":"smikey"
 }
 
