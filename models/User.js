@@ -53,6 +53,32 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ""
     },
+    follower: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }
+    ],
+    following: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }
+    ],
+    savedJob: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Job",
+            select: false
+        }
+    ],
+    appliedJob: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Job",
+            select: false
+        }
+    ],
     androidId: {
         type: String,
         default: ""
@@ -67,6 +93,13 @@ const userSchema = mongoose.Schema({
         default: null,
         select: false
     },
+    recentlyViewed: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Job",
+            select: false
+        }
+    ],
 }, { toJSON: { getters: true } })
 
 function capitalize(name) {

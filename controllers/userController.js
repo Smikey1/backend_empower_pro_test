@@ -2,14 +2,19 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
 const moment = require('moment')
 const User = require("../models/User.js");
+const Post = require("../models/Post.js");
+const Job = require("../models/Job.js");
 const cloudinary = require("../utils/cloudinary.js")
+const Company = require('../models/Company.js');
 const { success, failure } = require("../utils/message.js")
 const sendOTP_Email_SMS = require('../utils/send-otp.js')
 const passwordTemplate = require('../utils/generate-password-reset-template')
 const registerEmailTemplate = require('../utils/register-email-verification-template')
 const otpVerificationTemplate = require('../utils/otp-verification-template.js')
 const randomIntGenerator = require('../utils/generate-random-int.js');
-const otpHelper = require("../helpers/otpHelper.js")
+const getUnarchivedJob = require("../utils/getUnarchivedJob.js");
+const otpHelper = require("../helpers/otpHelper.js");
+const { UserBindingPage } = require('twilio/lib/rest/ipMessaging/v2/service/user/userBinding.js');
 
 exports.register_new_user = async function (req, res) {
     try {
@@ -39,10 +44,7 @@ exports.register_new_user = async function (req, res) {
                 password: hashed,
                 androidId: deviceId
             })
-            const resetCode = randomIntGenerator(100000, 999999)
-            const resetCodeExpiration = moment().add(24, 'h')
-            const textContent = registerEmailTemplate(email, fullname, resetCode, resetCodeExpiration.format('MMMM Do YYYY, h:mm:ss a'))
-            sendOTP_Email_SMS(email, fullname, textContent)
+            await otpHelper.generateAndSendOTP(user)
             await user.save();
             res.json(success("Registeration successful."));
         }
@@ -55,7 +57,7 @@ exports.register_new_user = async function (req, res) {
 }
 
 exports.login_user = async function (req, res) {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email: req.body.email })
     if (user) {
         const validLogin = await bcrypt.compare(req.body.password, user.password);
         if (validLogin) {
@@ -91,15 +93,128 @@ exports.login_user = async function (req, res) {
 }
 
 exports.get_user_detail = async function (req, res) {
-    console.log(req.user._id)
     try {
-        let requestedUser = await User.findById(req.user._id)
-        res.send(success("User Fetched", requestedUser));
+        let requestedUser = await User.findById(req.user._id).select("fullname profile bio email website address follower phone following recentlyViewed").populate("savedJob appliedJob recentlyViewed")
+        const data = requestedUser.toObject()
+        data["savedJob"] = getUnarchivedJob(data.savedJob)
+        data["appliedJob"] = getUnarchivedJob(data.appliedJob)
+        data["post"] = await Post.find({ user: req.user._id, archive: false }).populate("user relatedJob")
+        data["job"] = await Job.find({ user: req.user._id, isPosted: true, archive: false })
+        data["company"] = await Company.findOne({ user: req.user._id })
+        res.send(success("User Fetched", data));
     } catch (error) {
         console.log(error)
         res.json(failure())
     }
     res.end();
+}
+
+exports.get_user_job = async function (req, res) {
+    try {
+        const data = await Job.find({ user: req.user._id, isPosted: true, archive: false }).populate("user")
+        res.send(success("User Job Fetched", data))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.get_user_post = async function (req, res) {
+    try {
+        const data = await Post.find({ user: req.user._id, archive: false })
+            .populate({ path: 'user', select: 'fullname profile' })
+            .populate({ path: 'relatedJob', select: 'title image hashtag' })
+            .sort({ createdDate: -1 }).limit(25)
+        res.send(success("User Post Fetched", data))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.get_all_user_saved_job = async function (req, res) {
+    try {
+        const data = await User.findById(req.user._id).select("savedJob").populate("savedJob")
+        res.send(success("Fetched User Saved Job", getUnarchivedJob(data.savedJob)))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.get_all_user_applied_job = async function (req, res) {
+    try {
+        const data = await User.findById(req.user._id).select("appliedJob").populate("appliedJob")
+        res.send(success("User Job Fetched", getUnarchivedJob(data.appliedJob)))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.single_saved_job = async (req, res) => {
+    try {
+        const job = await Job.findOne({ _id: req.params.jobId })
+        console.log(job)
+        const user = await User.findOne({ _id: req.user._id }).select("savedJob")
+        if (job) {
+            if (user.savedJob.includes(job._id)) {
+                user.savedJob.pull(job._id)
+                await user.save()
+                res.json(success("Job Removed"))
+            } else {
+                user.savedJob.push(job._id)
+                await user.save()
+                res.json(success("Job Saved"))
+            }
+        } else {
+            res.json(failure("Job Not Found"))
+        }
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.single_applied_job = async (req, res) => {
+    try {
+        const job = await Job.findOne({ _id: req.params.jobId })
+        const user = await User.findOne({ _id: req.user._id }).select("appliedJob")
+        console.log("Mero user==>",user.appliedJob)
+        if (job) {
+            if (user.appliedJob.includes(job._id)) {
+                res.json(success("Already Applied"))
+            } else {
+                user.appliedJob.push(job._id)
+                const userAgain = await User.findOne({ _id: req.user._id })
+                const emailTemplate = otpVerificationTemplate.applied_job_email_template(
+                    userAgain.fullname,
+                    job._id,
+                    job.title
+                );
+                const smsTemplate = otpVerificationTemplate.applied_job_sms_template(
+                    userAgain.fullname,
+                    job._id,
+                    job.title
+                );
+                const phoneNumber = userAgain.countryCode + userAgain.phone
+                sendOTP_Email_SMS(userAgain.email, phoneNumber, userAgain.fullname, emailTemplate, smsTemplate);
+                await user.save()
+                res.json(success("Job Saved"))
+            }
+        } else {
+            res.json(failure("Job Not Found"))
+        }
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
 }
 
 exports.update_user_detail = async function (req, res) {
@@ -196,9 +311,6 @@ module.exports.reset_code_for_email_phone = async function (req, res) {
     try {
         const newEmailAddress = req.body.email
         const newPhoneNumber = req.body.countryCode + req.body.phone
-
-        console.log("The new email -->" + newEmailAddress);
-        console.log("The new phone -->" + newPhoneNumber);
         // search for user
         const user = await User.findById(req.user._id).select("resetCode resetCodeExpiration password");
         if (!user) {
@@ -418,7 +530,6 @@ module.exports.resend_otp = async function (req, res) {
     res.end();
 };
 
-
 module.exports.resend_login_otp = async function (req, res) {
     try {
         const user = await User.findById(req.user._id);
@@ -435,3 +546,73 @@ module.exports.resend_login_otp = async function (req, res) {
     }
     res.end();
 };
+
+exports.view_other_profile = async function (req, res) {
+    try {
+        const fetchUser = await User.findOne({ _id: req.params.id })
+        const data = fetchUser.toObject()
+        data["post"] = await Post.find({ user: req.params.id }).populate("user relatedJob")
+        data["job"] = await Job.find({ user: req.params.id, isPosted: true })
+        const isFollowed = fetchUser.follower.includes(req.user._id)
+        data["isFollowed"] = isFollowed
+        res.send(success("User Profile Fetched", data))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+exports.follow_user = async function (req, res) {
+    try {
+        const followerUser = req.user._id
+        const followingUser = req.params.id
+        const followerUserData = await User.findById(followerUser)
+        if (followerUserData.following.includes(followingUser)) {
+            await User.findByIdAndUpdate(followerUser, {
+                $pull: { following: followingUser }
+            })
+            await User.findByIdAndUpdate(followingUser, {
+                $pull: { follower: followerUser }
+            })
+            // createNotification(followingUser, followerUser, "unfollowed you.")
+
+            res.json(success("Unfollowing Success"))
+        }
+        else {
+            await User.findByIdAndUpdate(followerUser, {
+                $push: { following: followingUser }
+            })
+            await User.findByIdAndUpdate(followingUser, {
+                $push: { follower: followerUser }
+            })
+            // createNotification(followingUser, followerUser, "started following you.")
+            res.json(success("Following Success"))
+        }
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+
+module.exports.get_user_followers = async function (req, res) {
+    try {
+        const user = await User.findOne({ _id: req.user._id }).populate("follower")
+        res.send(success("Followers Fetched", user.follower))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}
+module.exports.get_user_following = async function (req, res) {
+    try {
+        const user = await User.findOne({ _id: req.user._id }).populate("following")
+        res.send(success("Following Fetched", user.following))
+    } catch (error) {
+        console.log(error)
+        res.json(failure())
+    }
+    res.end()
+}

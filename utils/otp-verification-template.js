@@ -52,3 +52,58 @@ module.exports.sms_template = function (fullname, loginCode, expiration) {
   `
 return smsTemplate
 }
+
+
+module.exports.applied_job_email_template = function (fullname, jobId, jobName) {
+  const emailTemplate =
+    `
+<html>
+  <head>
+    <style>
+      .center {
+        display: flex;
+        justify-content: center;
+      }
+      .card {
+        border-radius: 16px;
+        border: 0.5px solid rgba(0, 0, 0, 0.2);
+        padding: 1rem;
+        width: 30rem;
+      }
+      .resetcode {
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body class="center">
+    <div class="center">
+      <section class="card">
+        <div class="center">
+          <img src="https://empowersofttech.com/wp-content/uploads/2018/07/empower-soft-tech.jpg"/>
+        </div>
+        <h1>Dear, ${fullname}</h1>
+        <p>Thanks for applying to the ${jobName} Position via EmpowerPro:</p>
+        <p>You can keep track of your application via</p>
+        <p>Your Job Application ID: ${jobId}</p>
+        <p>
+          If this was you, you can ignore this message. There's no need to take any action. This code will expire in 24 Hours.
+        </p>
+        <p>Thanks,<br />From EmpowerPro Team</p>
+      </section>
+    </div>
+  </body>
+</html>
+    `
+  return emailTemplate
+}
+
+module.exports.applied_job_sms_template = function (fullname, jobId, jobName) {
+  const smsTemplate =
+    `
+  Hi ${fullname}! Thanks for applying to the ${jobName} Position via EmpowerPro. Your Job Application ID: ${jobId}
+  Thank you.
+  EmpowerPro
+  `
+  return smsTemplate
+}

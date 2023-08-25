@@ -1,12 +1,12 @@
 @BASE_URL = http://localhost:5000/user
-@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGNlMTFjNDk4MWUwYWMxNTNiNDk5MGQiLCJpYXQiOjE2OTIxNzc5NjV9.2WYIKH1vlfQI9Cj2Q_-z38rtI6lmWqknVJ8aZLsAXaw
+@TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NGU2ZDNhMGQ2OTczZWY0YmZiNDZjNjYiLCJpYXQiOjE2OTI5MjYxMzN9.6mNuyI5xqeH2Qf4ynW8YhwjKYj5FA0YFXvv5TodS_3U
 # Register Request
 POST {{BASE_URL}}/register
 Content-Type: application/json
 
 {
-    "fullname": "Smikey Bros",
-    "email":"smikeywork@gmail.com",
+    "fullname": "Apple Boy",
+    "email":"appleboy472@gmail.com",
     "androidId":"okokok",
     "newPassword":"smikey",
     "countryCode":"+61",
@@ -20,8 +20,8 @@ POST {{BASE_URL}}/login
 Content-Type: application/json
 
 {
-    "email":"smikeywork@gmail.com",
-    "password":"smikey1"
+    "email":"appleboy472@gmail.com",
+    "password":"smikey"
 }
 
 ###
@@ -106,6 +106,14 @@ Authorization: Bearer {{TOKEN}}
 
 # Follow Other User
 PATCH {{BASE_URL}}/follow/641527a85472f07085f62875
+Content-Type: application/json
+Authorization: Bearer {{TOKEN}}
+
+###
+
+
+# Apply Job
+POST {{BASE_URL}}/appliedJob/64e7f7ac790e64202452f8db
 Content-Type: application/json
 Authorization: Bearer {{TOKEN}}
 
